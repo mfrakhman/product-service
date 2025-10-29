@@ -4,6 +4,7 @@ import { ProductsModule } from './products/products.module';
 import { redisStore } from 'cache-manager-ioredis-yet';
 import { CacheModule } from '@nestjs/cache-manager';
 import { ConfigModule } from '@nestjs/config';
+import { RabbitmqModule } from './rabbitmq/rabbitmq.module';
 
 @Module({
   imports: [
@@ -11,11 +12,11 @@ import { ConfigModule } from '@nestjs/config';
     TypeOrmModule.forRootAsync({
       useFactory: () => ({
         type: 'postgres',
-        host: process.env.DB_HOST,
-        port: Number(process.env.DB_PORT),
-        username: process.env.DB_USER,
-        password: process.env.DB_PASS,
-        database: process.env.DB_NAME,
+        host: process.env.DB_HOST || 'localhost',
+        port: Number(process.env.DB_PORT) || 5432,
+        username: process.env.DB_USER || 'postgres',
+        password: process.env.DB_PASS || 'postgres',
+        database: process.env.DB_NAME || 'product-db',
         autoLoadEntities: true,
         synchronize: true,
       }),
@@ -27,10 +28,11 @@ import { ConfigModule } from '@nestjs/config';
           host: process.env.REDIS_HOST,
           port: Number(process.env.REDIS_PORT),
         }),
-        ttl: 5, // seconds
+        ttl: 60, // seconds
       }),
     }),
     ProductsModule,
+    RabbitmqModule,
   ],
 })
 export class AppModule {}

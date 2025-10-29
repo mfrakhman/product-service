@@ -4,7 +4,6 @@ import {
   Post,
   Param,
   Body,
-  ValidationPipe,
 } from '@nestjs/common';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -14,17 +13,17 @@ export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
   @Post()
-  create(@Body(new ValidationPipe()) dto: CreateProductDto) {
-    return this.productsService.create(dto);
+  create(@Body() dto: CreateProductDto) {
+    return this.productsService.createProduct(dto);
   }
 
   @Get(':id')
-  findOne(@Param('id') id: number) {
-    return this.productsService.findOne(id);
+  findOne(@Param('id') id: string) {
+    return this.productsService.getProductById(id);
   }
 
   @Get()
   findAll() {
-    return this.productsService.findAll();
+    return this.productsService.getProducts();
   }
 }

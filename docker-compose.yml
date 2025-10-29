@@ -1,11 +1,11 @@
 services:
   postgres:
     image: postgres:17
-    container_name: product_db
+    container_name: product-db
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: product_db
+      POSTGRES_DB: product_test_db
     ports:
       - '5432:5432'
     volumes:
@@ -13,19 +13,19 @@ services:
 
   redis:
     image: redis:7
-    container_name: redis_product
+    container_name: redis-product
     ports:
       - '6379:6379'
 
   rabbitmq:
     image: rabbitmq:3-management
-    container_name: rabbitmq
+    container_name: rabbitmq-product
     ports:
-      - "5672:5672"
-      - "15672:15672"
+      - '5672:5672'
+      - '15672:15672'
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
-      
+
 volumes:
   pgdata:
