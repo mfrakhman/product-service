@@ -28,14 +28,4 @@ export class OrderEventListenerService implements OnModuleInit {
       },
     );
   }
-
-  // async onModuleInit() {
-  //   await this.rabbitmqService.createConsumer(
-  //     'order_created',
-  //     async (payload) => {
-  //       console.log('Recieved order_created event:', payload);
-  //       await this.productsService.handleOrderCreatedEvent(payload);
-  //     },
-  //   );
-  // }
 }
