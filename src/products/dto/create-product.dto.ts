@@ -1,4 +1,9 @@
-import { IsNotEmpty, IsNumber, IsPositive, isPositive, Min } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsNumber,
+  IsPositive,
+  Min,
+} from 'class-validator';
 
 export class CreateProductDto {
   @IsNotEmpty({ message: 'Product name must not be empty' })

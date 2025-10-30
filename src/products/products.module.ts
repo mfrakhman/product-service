@@ -4,17 +4,18 @@ import { ProductsController } from './products.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Product } from './products.entity';
 import { ProductsRepository } from './products.repository';
-import { RabbitmqService } from 'src/rabbitmq/rabbitmq.service';
 import { OrderEventListenerService } from './orderEventListener.service';
+import { ProductCacheService } from './product-cache.service';
+import { RabbitmqModule } from 'src/rabbitmq/rabbitmq.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Product])],
+  imports: [TypeOrmModule.forFeature([Product]), RabbitmqModule],
+  controllers: [ProductsController],
   providers: [
     ProductsService,
     ProductsRepository,
-    RabbitmqService,
-    OrderEventListenerService
+    OrderEventListenerService,
+    ProductCacheService,
   ],
-  controllers: [ProductsController],
 })
 export class ProductsModule {}

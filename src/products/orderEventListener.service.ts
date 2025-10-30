@@ -10,11 +10,21 @@ export class OrderEventListenerService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
-    await this.rabbitmqService.createConsumer(
-      'order_created',
-      async (payload) => {
-        console.log('Recieved order_created event:', payload);
-        await this.productsService.handleOrderCreatedEvent(payload);
+    await this.rabbitmqService.consume(
+      'order.exchange',
+      'product_order_queue',
+      'order.created',
+      async (order) => {
+        try {
+          const { productId, quantity } = order;
+          const reduceStock = await this.productsService.decreaseQuantity(
+            productId,
+            quantity,
+          );
+          console.log(reduceStock);
+        } catch (error) {
+          throw error;
+        }
       },
     );
   }
