@@ -51,6 +51,7 @@ export class ProductsService {
     quantity: number,
   ): Promise<Product | null> {
     let product = await this.cache.getCachedProduct(productId);
+
     if (!product) {
       product = await this.productRepository.findById(productId);
       if (!product) {
@@ -58,17 +59,14 @@ export class ProductsService {
       }
       await this.cache.setCachedProduct(productId, product);
     }
-    if (product.quantity < quantity) {
-      throw new BadRequestException(
-        `Not Enough Stock in Product with Id ${productId}`,
-      );
-    }
+
     const updatedProduct = await this.productRepository.updateQuantity(
       productId,
-      product.qty - quantity,
+      quantity,
     );
 
     await this.cache.setCachedProduct(productId, updatedProduct);
+
     return updatedProduct;
   }
 }

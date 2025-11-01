@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Product } from './products.entity';
@@ -24,9 +24,21 @@ export class ProductsRepository {
 
   async updateQuantity(
     productId: string,
-    qty: number,
+    quantity: number,
   ): Promise<Product | null> {
-    await this.productRepo.update(productId, { qty });
-    return this.findById(productId);
+    const result = await this.productRepo
+      .createQueryBuilder()
+      .update(Product)
+      .set({ qty: () => `qty - ${quantity}` })
+      .where('id = :id', { id: productId })
+      .andWhere('qty >= :quantity', { quantity })
+      .returning('*')
+      .execute();
+
+    if (result.affected === 0) {
+      throw new BadRequestException('Insufficient stock or invalid product');
+    }
+
+    return result.raw[0];
   }
 }
