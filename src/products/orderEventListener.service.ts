@@ -17,11 +17,7 @@ export class OrderEventListenerService implements OnModuleInit {
       async (order) => {
         try {
           const { productId, quantity } = order;
-          const reduceStock = await this.productsService.decreaseQuantity(
-            productId,
-            quantity,
-          );
-          console.log(reduceStock);
+          await this.productsService.decreaseQuantity(productId, quantity);
         } catch (error) {
           throw error;
         }
