@@ -1,98 +1,406 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Event Driven Product & Order Microservices
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+A lightweight event-driven microservice system built with NestJS (Product-Service) and Golang (Order-Service), communicating asynchronously through RabbitMQ, with Redis caching and PostgreSQL persistence.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Architecture Overview
+### Component
+| Service | Description |
+| --- | --- |
+| Product-Service (NestJS) | Handles product creation, stock management, and emits product.created events. Listens for order.created events to decrease product quantity. |
+| Order-Service (Golang) | Processes incoming order requests asynchronously, stores them in PostgreSQL, and publishes order.created events. |
+| RabbitMQ | Acts as the event bus between services for message-driven communication. |
+| Redis | Provides caching for frequent reads (GET endpoints). |
+| PostgreSQL | Stores products and orders persistently. |
 
-## Description
+### Tech Stack
+#### Order Service (Go)
+- Go 1.25.3
+- Gin Web Framework
+- pgx/v5 (PostgreSQL driver)
+- RabbitMQ client
+- Redis client
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+#### Product Service (Node.js)
+- NestJS 11.x
+- TypeORM
+- Redis (via cache-manager)
+- RabbitMQ integration
+- TypeScript 5.x
 
-## Project setup
+#### Infrastructure
+- PostgreSQL 17
+- Redis 7
+- RabbitMQ 3.x with Management Console
+- Docker & Docker Compose
 
-```bash
-$ npm install
+## Project Structure
+```
+root folder/
+├── docker-compose.yml    # Container orchestration
+├── order-service/        # Go-based order management service
+│   ├── cmd/              # Application entrypoint
+│   ├── config/           # Configuration management
+│   └── internal/         # Internal packages
+│       ├── cache/        # Redis cache implementation
+│       ├── db/           # Database connectivity
+│       ├── handlers/     # HTTP handlers
+│       ├── models/       # Domain models
+│       ├── rabbitmq/     # Message queue client
+│       ├── repository/   # Data access layer
+│       └── service/     # Business logic
+└── product-service/    # NestJS-based product management
+    ├── src/
+    │   ├── products/  # Product module
+    │   ├── rabbitmq/ # RabbitMQ integration
+    │   └── main.ts   # Application entry point
+    └── test/        # E2E tests
+```
+## Installation & Setup
+
+1. Create new folder (example MrScrapperTest) 
+2. Open the folder and bash
+3. Clone both the repository:
+   ```bash
+   git clone <repository-url>
+   ```
+4. Open the root folder and add the docker-compose.yml
+  or cut the docker-compose.yml file from product-service repo and put in root-folder
+    ```yml
+    services:
+        postgres:
+            image: postgres:17
+            container_name: postgres_db
+            environment:
+            POSTGRES_USER: postgres
+            POSTGRES_PASSWORD: postgres
+            POSTGRES_DB: product_db
+            ports:
+            - "5432:5432"
+            volumes:
+            - pgdata:/var/lib/postgresql/data
+            networks:
+            - app-network
+
+        redis:
+            image: redis:7
+            container_name: redis
+            ports:
+            - "6379:6379"
+            networks:
+            - app-network
+
+        rabbitmq:
+            image: rabbitmq:3-management
+            container_name: rabbitmq
+            healthcheck:
+            test: rabbitmq-diagnostics -q ping
+            interval: 30s
+            timeout: 10s
+            retries: 5
+            ports:
+            - "5672:5672"
+            - "15672:15672"
+            environment:
+            RABBITMQ_DEFAULT_USER: guest
+            RABBITMQ_DEFAULT_PASS: guest
+            networks:
+            - app-network
+
+        product-service:
+            build: ./product-service
+            container_name: product-service
+            depends_on:
+            postgres:
+                condition: service_started
+            rabbitmq:
+                condition: service_healthy
+            redis:
+                condition: service_started
+            environment:
+            DB_HOST: postgres
+            DB_PORT: 5432
+            DB_USER: postgres
+            DB_PASS: postgres
+            DB_NAME: product_db
+            RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+            REDIS_HOST: redis
+            REDIS_PORT: 6379
+            PORT: 3001
+            ports:
+            - "3001:3001"
+            deploy:
+            resources:
+                limits:
+                cpus: "2.0"
+                memory: 512M
+            networks:
+            - app-network
+
+        order-service:
+            build: ./order-service
+            container_name: order-service
+            depends_on:
+            postgres:
+                condition: service_started
+            rabbitmq:
+                condition: service_healthy
+            redis:
+                condition: service_started
+            environment:
+            DB_HOST: postgres
+            DB_PORT: 5432
+            DB_USER: postgres
+            DB_PASS: postgres
+            DB_NAME: product_db
+            POSTGRES_MAX_IDLE_CONNS: 10
+            POSTGRES_MAX_OPEN_CONNS: 1000
+            POSTGRES_CONN_MAX_LIFETIME_MINUTES: 30
+            RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+            PRODUCT_API_URL: http://product-service:3001/products
+            REDIS_HOST: redis
+            REDIS_PORt: 6379
+            PORT: 3002
+            ports:
+            - "3002:3002"
+            deploy:
+            resources:
+                limits:
+                cpus: "2.0"
+                memory: 512M
+            networks:
+            - app-network
+
+    networks:
+    app-network:
+        driver: bridge
+
+    volumes:
+    pgdata:
+    ```
+5. Build and Start Services:
+   ```bash
+   //make sure you are on project-root
+   docker compose up --build
+   ```
+   This will start:
+   - PostgreSQL
+   - Redis
+   - RabbitMQ
+   - Product-Service (port 3001)
+   - Order-Service (port 3002)
+
+## Full System Flow Diagram
+```plain
+           ┌────────────────────────┐
+           │        Client          │
+           │ (Frontend / Postman)   │
+           └────────────┬───────────┘
+                        │
+                        │
+      ┌─────────────────┴─────────────────┐
+      │                                   │
+      ▼                                   ▼    
+  Product-Service                      Order-Service      
+    (NestJS)                             (Golang)      
+                             
+
+```
+#### Create Product — POST /products
+```plain
+Client
+  │
+  ▼
+[ Product-Service ]
+  │
+  ├── Validate request (name, price, qty)
+  ├── Insert product into PostgreSQL
+  │       └── Table: products (id, name, price, qty, createdAt)
+  ├── Store product info in Redis (cache)
+  └── Emit event "product.created" → RabbitMQ
+```
+#### GET /products/:id
+```plain
+Client
+  │
+  ▼
+[ Product-Service ]
+  │
+  ├── Check Redis cache for key: "product:{id}"
+  │      ├── If found → Return cached product (fast)
+  │      └── If not found:
+  │             ├── Fetch from PostgreSQL
+  │             ├── Save to Redis cache
+  │             └── Return to client
+  ▼
+ Response → JSON { id, name, price, qty, createdAt }
+```
+#### Create Order — POST /orders
+```plain
+Client
+  │
+  ▼
+[ Order-Service ]
+  │
+  ├── Fetch product info from Product-Service via HTTP (http://product-service:3001/products/:id)
+  │      ├── Validate stock (qty >= request.qty)
+  │      └── If not found → return 404 or 400
+  │
+  ├── Calculate totalPrice = product.price × quantity
+  ├── Queue order into async worker channel
+  │
+  ├── Background Worker:
+  │      ├── Insert order into PostgreSQL
+  │      │       └── Table: orders (id, productId, totalPrice, status, createdAt)
+  │      ├── Publish "order.created" event → RabbitMQ
+  │      └── Log order creation success
+  │
+  └── Return immediate HTTP 201 (non-blocking)
+```
+#### Get Orders by Product ID — GET /orders?productId={id}
+```plain
+Client
+  │
+  ▼
+[ Order-Service ]
+  │
+  ├── Check Redis cache for key: "orders:{productId}"
+  │      ├── If found → Return cached orders list
+  │      └── If not found:
+  │             ├── Query PostgreSQL for orders
+  │             ├── Cache result in Redis
+  │             └── Return to client
+  ▼
+ Response → JSON array of orders
+```
+#### Event Flow Order.Created -> Product Quantity Update
+```plain
+[ Order-Service ]
+  │
+  └── Publish event → "order.exchange" → "order.created"
+            │
+            ▼
+      [ RabbitMQ Broker ]
+            │
+            ▼
+      [ Product-Service ]
+            │
+            ├── Consume "order.created" event
+            ├── Update product.qty -= order.quantity
+            ├── Save updated product in PostgreSQL
+            └── Refresh Redis cache with new product data
 ```
 
-## Compile and run the project
+1. **Product Service** (Port 3001)
+   - Manages product inventory and pricing
+   - Provides REST API for product operations
+   - Listens for order events to update inventory
+   - Uses Redis for product caching
 
+2. **Order Service** (Port 3002)
+   - Handles order creation and management
+   - Publishes order events to RabbitMQ
+   - Validates products via Product Service API
+   - Uses Redis for order caching
+
+
+
+
+## Summary Data Flow
+| Operation | Origin | Destination | Communication | Description |
+|--------|----------|-------------|--------|--------|
+| POST /products | Client | Product-Service | HTTP | Create a new product |
+| GET /products/:id | Client | Product-Service |HTTP + Redis | Retrieve product (cached) |
+| POST /orders | Client | Order-service | HTTP + RabbitMQ | Create async order & emit event |
+| GET /orders?productId= | Client | Order-service | HTTP + Redis | Retrieve cached orders |
+| order.created | Order-service | Product-Service | RabbitMQ | Product stock update |
+
+## Example API Request
+Import MrScrapperTest.postman_collection.json from product-service repo to your postman, Or curl below
+### Create Product
 ```bash
-# development
-$ npm run start
+curl --location 'http://localhost:3001/products' \
+--header 'Content-Type: application/json' \
+--data '{
+  "name": "G102 Mouse",
+  "price": 190000,
+  "qty": 10000
+}'
+```
+### Get ProductById
+```bash
+curl --location 'http://localhost:3001/products/<product_id>'
+```
+### Create Order
+```bash
+curl --location 'http://localhost:3002/orders' \
+--header 'Content-Type: application/json' \
+--data '{
+  "productId": "<product_id>",
+  "quantity": 2
+}'
+```
+### Get OrdersByProductId
+```bash
+curl --location 'http://localhost:3002/orders?productId=<product_id>'
+```
+## Load Test
 
-# watch mode
-$ npm run start:dev
+### Insall k6
+```bash
+choco install k6    # Windows
+brew install k6     # macOS
 
-# production mode
-$ npm run start:prod
 ```
 
-## Run tests
+### Example script
+```js
+import http from "k6/http";
+import { check } from "k6";
 
-```bash
-# unit tests
-$ npm run test
+export const options = {
+  scenarios: {
+    create_orders: {
+      executor: "constant-arrival-rate",
+      rate: 1000, 
+      timeUnit: "1s",
+      duration: "60s", 
+      preAllocatedVUs: 200, 
+      maxVUs: 500,
+    },
+  },
+};
 
-# e2e tests
-$ npm run test:e2e
+const BASE_URL = "http://localhost:3002/orders";
+const PRODUCT_ID = __ENV.PRODUCT_ID || "8f1ec8a2-67dc-436b-abcc-d77b8c8fa0ed"; // <- Change it to "ProductId"
 
-# test coverage
-$ npm run test:cov
+export default function () {
+  const payload = JSON.stringify({
+    productId: PRODUCT_ID,
+    quantity: 1,
+  });
+
+  const params = { headers: { "Content-Type": "application/json" } };
+
+  const res = http.post(BASE_URL, payload, params);
+
+  check(res, {
+    "status is 201": r => r.status === 201,
+  });
+}
+
 ```
 
-## Deployment
+## Resource Management
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+The system is configured with resource limits:
+- Each service: 2 CPU cores, 512MB RAM
+- Optimized database connection pools
+- Configurable Redis cache settings
+- Monitored RabbitMQ queues with health checks
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+## Monitoring & Management
 
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+- RabbitMQ Management Console: http://localhost:15672
+  - Default credentials: guest/guest
+- PostgreSQL: localhost:5432
+- Redis: localhost:6379

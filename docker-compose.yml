@@ -1,31 +1,110 @@
 services:
   postgres:
     image: postgres:17
-    container_name: product-db
+    container_name: postgres_db
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: product_test_db
+      POSTGRES_DB: product_db
     ports:
-      - '5432:5432'
+      - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    networks:
+      - app-network
 
   redis:
     image: redis:7
-    container_name: redis-product
+    container_name: redis
     ports:
-      - '6379:6379'
+      - "6379:6379"
+    networks:
+      - app-network
 
   rabbitmq:
     image: rabbitmq:3-management
-    container_name: rabbitmq-product
+    container_name: rabbitmq
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 30s
+      timeout: 10s
+      retries: 5
     ports:
-      - '5672:5672'
-      - '15672:15672'
+      - "5672:5672"
+      - "15672:15672"
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
+    networks:
+      - app-network
+
+  product-service:
+    build: ./product-service
+    container_name: product-service
+    depends_on:
+      postgres:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASS: postgres
+      DB_NAME: product_db
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      PORT: 3001
+    ports:
+      - "3001:3001"
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 512M
+    networks:
+      - app-network
+
+  order-service:
+    build: ./order-service
+    container_name: order-service
+    depends_on:
+      postgres:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASS: postgres
+      DB_NAME: product_db
+      POSTGRES_MAX_IDLE_CONNS: 10
+      POSTGRES_MAX_OPEN_CONNS: 1000
+      POSTGRES_CONN_MAX_LIFETIME_MINUTES: 30
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      PRODUCT_API_URL: http://product-service:3001/products
+      REDIS_HOST: redis
+      REDIS_PORt: 6379
+      PORT: 3002
+    ports:
+      - "3002:3002"
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 512M
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
 
 volumes:
   pgdata:

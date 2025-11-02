@@ -1,0 +1,98 @@
+{
+	"info": {
+		"_postman_id": "42858131-b40b-490f-8896-fa808e288ca8",
+		"name": "MrScrapperTest",
+		"schema": "https://schema.getpostman.com/json/collection/v2.0.0/collection.json",
+		"_exporter_id": "12311050"
+	},
+	"item": [
+		{
+			"name": "product-service",
+			"item": [
+				{
+					"name": "Create Product",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"name\": \"G101\",\r\n  \"price\": 190000,\r\n  \"qty\": 100000\r\n}\r\n",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": "localhost:3001/products"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Product",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": "localhost:3001/products/8f1ec8a2-67dc-436b-abcc-d77b8c8fa0ed"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Products",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": "localhost:3001/products"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "order-service",
+			"item": [
+				{
+					"name": "Create Order",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"productId\": \"8f1ec8a2-67dc-436b-abcc-d77b8c8fa0ed\",\r\n    \"quantity\": 1\r\n}\r\n",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": "localhost:3002/orders"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Orders by Product",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "localhost:3002/orders?productId=5bfc2e86-d805-4402-9de3-df01d568f9f8",
+							"host": [
+								"localhost"
+							],
+							"port": "3002",
+							"path": [
+								"orders"
+							],
+							"query": [
+								{
+									"key": "productId",
+									"value": "5bfc2e86-d805-4402-9de3-df01d568f9f8"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	]
+}
